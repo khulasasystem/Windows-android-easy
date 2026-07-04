@@ -29,6 +29,9 @@ class VirtualSystemRepository(
                 VirtualFile("C:\\Users\\Administrator\\Desktop", "Desktop", true, parentPath = "C:\\Users\\Administrator"),
                 VirtualFile("C:\\Users\\Administrator\\Documents", "Documents", true, parentPath = "C:\\Users\\Administrator"),
                 VirtualFile("C:\\Users\\Administrator\\Downloads", "Downloads", true, parentPath = "C:\\Users\\Administrator"),
+                VirtualFile("C:\\Users\\Administrator\\Downloads\\chrome_installer.msi", "chrome_installer.msi", false, "msi_installer_binary_header_magic_MZ90\nSize: 45.2 MB\nPublisher: Google LLC\nArchitecture: x86_64\nSignature: Validated", "C:\\Users\\Administrator\\Downloads"),
+                VirtualFile("C:\\Users\\Administrator\\Downloads\\steam_setup.exe", "steam_setup.exe", false, "pe_coff_binary_header_magic_MZ90\nSize: 2.1 MB\nPublisher: Valve Corp\nArchitecture: x86_64\nSignature: Validated", "C:\\Users\\Administrator\\Downloads"),
+                VirtualFile("C:\\Users\\Administrator\\Downloads\\android_game.apk", "android_game.apk", false, "dalvik_bytecode_header_magic_PK0304\nSize: 124.5 MB\nPublisher: Unknown\nArchitecture: ARM64\nSignature: Unsigned", "C:\\Users\\Administrator\\Downloads"),
                 VirtualFile(
                     "C:\\Users\\Administrator\\Desktop\\README.txt",
                     "README.txt",

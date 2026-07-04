@@ -985,6 +985,56 @@ class VirtualSystemViewModel(
         )
     }
 
+    // --- APP REGISTRY: EXE / MSI BINARY VALIDATOR & APK REJECTOR ---
+    fun executeVirtualBinary(file: VirtualFile) {
+        if (file.isDirectory) return
+        val nameLower = file.name.lowercase()
+        if (nameLower.endsWith(".apk")) {
+            triggerNotification(
+                "App Registry Error (Code: 0xC000007B)",
+                "EXECUTION BLOCKED: '${file.name}' is an Android Package (.apk). Standard Dalvik bytecode cannot run on x86_64 virtualization core. Use portable executable (.exe) or installer (.msi) targets."
+            )
+        } else if (nameLower.endsWith(".exe") || nameLower.endsWith(".msi")) {
+            triggerNotification(
+                "App Registry Verification",
+                "Verifying file headers & AMD64 compatibility signature for '${file.name}'..."
+            )
+            viewModelScope.launch {
+                delay(800)
+                val baseName = file.name.substringBefore(".").lowercase()
+                val targetAppId = when {
+                    baseName.contains("chrome") -> "chrome"
+                    baseName.contains("steam") -> "steam" // If we want to support steam
+                    else -> null
+                }
+                
+                val appToInstall = _uiState.value.availableApps.find { it.id == targetAppId }
+                if (appToInstall != null) {
+                    if (!appToInstall.isInstalled) {
+                        installSimulatedApp(appToInstall.id)
+                    } else {
+                        triggerNotification(
+                            "App Registry Engine",
+                            "'${file.name}' successfully loaded through Wine/Box64 translation layers."
+                        )
+                        openWindow(when (appToInstall.id) {
+                            "chrome" -> WindowType.CHROME
+                            else -> WindowType.NOTEPAD
+                        })
+                    }
+                } else {
+                    triggerNotification(
+                        "App Registry Sandbox",
+                        "Executing '${file.name}' inside Wine prefix. Process started successfully (PID: ${(1000..9999).random()})."
+                    )
+                }
+            }
+        } else {
+            selectFile(file)
+            openWindow(WindowType.NOTEPAD)
+        }
+    }
+
     // --- PERIPHERALS SCANNER & PRINTER SIMULATOR ---
     fun runVirtualScanner() {
         viewModelScope.launch {

@@ -23,6 +23,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.zIndex
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.geometry.Offset
@@ -105,105 +106,125 @@ fun BootloaderScreen(viewModel: VirtualSystemViewModel) {
 
     val driversList = listOf("Turnip+Zink (Recommended)", "VirGL Simulator", "LLVMpipe Software Renderer")
 
+    // Dynamic hypervisor performance calculation for polish
+    val perfScore = cores * 1250 + ram * 450 + (if (driver.contains("Turnip")) 2500 else 800) + (if (dxvk) 1200 else 0) + (if (esync) 800 else 0)
+    val perfGrade = when {
+        perfScore > 13000 -> "Ultra Core / Gaming Ready (GFLOPS: $perfScore)"
+        perfScore > 9000 -> "Balanced Desktop Mode (GFLOPS: $perfScore)"
+        else -> "Standard Sandbox / Low Overhead (GFLOPS: $perfScore)"
+    }
+    val perfColor = when {
+        perfScore > 13000 -> Color(0xFF00FFCC)
+        perfScore > 9000 -> Color(0xFFFFA500)
+        else -> Color(0xFFE040FB)
+    }
+
     Box(
         modifier = Modifier
             .fillMaxSize()
             .background(
                 Brush.verticalGradient(
-                    colors = listOf(Color(0xFF070B19), Color(0xFF141E30))
+                    colors = listOf(Color(0xFF030712), Color(0xFF0B132B))
                 )
             )
-            .padding(24.dp)
+            .padding(16.dp)
     ) {
         Row(
             modifier = Modifier.fillMaxSize(),
-            horizontalArrangement = Arrangement.spacedBy(24.dp)
+            horizontalArrangement = Arrangement.spacedBy(16.dp)
         ) {
+            // LEFT PANEL: GNU GRUB style list
             Column(
                 modifier = Modifier
                     .weight(1.2f)
-                    .fillMaxHeight(),
+                    .fillMaxHeight()
+                    .border(1.dp, Color(0xFF334155), RoundedCornerShape(8.dp))
+                    .background(Color(0xFF080D1A))
+                    .padding(16.dp),
                 verticalArrangement = Arrangement.SpaceBetween
             ) {
                 Column {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(
-                            imageVector = Icons.Default.Settings,
-                            contentDescription = "BIOS",
-                            tint = Color(0xFF00FFCC),
-                            modifier = Modifier.size(28.dp)
-                        )
-                        Spacer(modifier = Modifier.width(12.dp))
+                    // GRUB Header
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
                         Text(
-                            text = "HYBRID-BIOS x86_64 BOOTLOADER v4.2",
-                            color = Color.White,
-                            fontSize = 20.sp,
+                            text = "GNU GRUB  version 2.06_multiarch",
+                            color = Color(0xFF94A3B8),
+                            fontSize = 11.sp,
                             fontWeight = FontWeight.Bold,
                             fontFamily = FontFamily.Monospace
                         )
+                        Text(
+                            text = "[ LANDSCAPE VM MODE ]",
+                            color = Color(0xFF00FFCC),
+                            fontSize = 10.sp,
+                            fontFamily = FontFamily.Monospace
+                        )
                     }
-                    Divider(color = Color.White.copy(alpha = 0.2f), modifier = Modifier.padding(vertical = 12.dp))
+                    
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Divider(color = Color(0xFF1E293B), thickness = 1.dp)
+                    Spacer(modifier = Modifier.height(10.dp))
                     
                     Text(
-                        text = "Please select the Guest Operating System to boot into:",
-                        color = Color.LightGray,
-                        fontSize = 14.sp,
+                        text = "Use click/tap to highlight the Guest operating system. Selected options adjust the virtual hypervisor thread configurations dynamically.",
+                        color = Color(0xFF94A3B8),
+                        fontSize = 10.sp,
                         fontFamily = FontFamily.Monospace,
-                        modifier = Modifier.padding(bottom = 16.dp)
+                        modifier = Modifier.padding(bottom = 14.dp)
                     )
 
-                    listOf(
-                        OsType.WIN11 to "Windows 11 Pro [Virtual Environment Layer]",
-                        OsType.WIN10 to "Windows 10 Pro [Optimized & Stripped]",
-                        OsType.WIN7 to "Windows 7 Ultimate [Legacy Compatibility Mod]",
-                        OsType.KALI to "Kali Linux Rolling [Penetration Auditing Bash Suite]"
-                    ).forEach { (os, label) ->
-                        val isSelected = selectedOs == os
-                        Card(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 6.dp)
-                                .clickable { selectedOs = os }
-                                .border(
-                                    1.dp,
-                                    if (isSelected) Color(0xFF00FFCC) else Color.White.copy(alpha = 0.08f),
-                                    RoundedCornerShape(8.dp)
-                                ),
-                            colors = CardDefaults.cardColors(
-                                containerColor = if (isSelected) Color(0xFF1F2D44) else Color(0xFF101625)
-                            )
-                        ) {
+                    // GRUB-style boxed list
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .border(1.dp, Color(0xFF1E293B), RoundedCornerShape(4.dp))
+                            .background(Color(0xFF050811))
+                            .padding(8.dp)
+                    ) {
+                        listOf(
+                            OsType.WIN11 to "Windows 11 Pro [Virtual Environment Layer]",
+                            OsType.WIN10 to "Windows 10 Pro [Optimized & Stripped]",
+                            OsType.WIN7 to "Windows 7 / XP Legacy [Compatibility Mod]",
+                            OsType.KALI to "Kali Linux Rolling [Penetration Auditing Bash]"
+                        ).forEach { (os, label) ->
+                            val isSelected = selectedOs == os
+                            
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(14.dp),
+                                    .clickable { selectedOs = os }
+                                    .background(
+                                        if (isSelected) Color(0xFF1E293B) else Color.Transparent
+                                    )
+                                    .padding(vertical = 8.dp, horizontal = 10.dp),
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.SpaceBetween
                             ) {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Icon(
-                                        imageVector = when(os) {
-                                            OsType.KALI -> Icons.Default.Build
-                                            else -> Icons.Default.Home
-                                        },
-                                        contentDescription = "OS",
-                                        tint = if (isSelected) Color(0xFF00FFCC) else Color.Gray,
-                                        modifier = Modifier.size(20.dp)
+                                    Text(
+                                        text = if (isSelected) "* " else "  ",
+                                        color = Color(0xFF00FFCC),
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 13.sp,
+                                        fontFamily = FontFamily.Monospace
                                     )
-                                    Spacer(modifier = Modifier.width(12.dp))
                                     Text(
                                         text = label,
-                                        color = if (isSelected) Color.White else Color.LightGray,
-                                        fontSize = 13.sp,
+                                        color = if (isSelected) Color(0xFF00FFCC) else Color(0xFFCBD5E1),
+                                        fontSize = 12.sp,
                                         fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
                                         fontFamily = FontFamily.Monospace
                                     )
                                 }
                                 if (isSelected) {
                                     Text(
-                                        text = "[ACTIVE]",
-                                        color = Color(0xFF00FFCC),
-                                        fontSize = 11.sp,
+                                        text = "<ENTER>",
+                                        color = Color(0xFF00FFCC).copy(alpha = 0.8f),
+                                        fontSize = 10.sp,
                                         fontFamily = FontFamily.Monospace
                                     )
                                 }
@@ -212,51 +233,70 @@ fun BootloaderScreen(viewModel: VirtualSystemViewModel) {
                     }
                 }
 
-                Text(
-                    text = "Press enter or double-click to boot instantly with selected system configuration.",
-                    color = Color.Gray,
-                    fontSize = 11.sp,
-                    fontFamily = FontFamily.Monospace
-                )
+                // Keyboard controls guidance at bottom
+                Column {
+                    Divider(color = Color(0xFF1E293B), thickness = 1.dp, modifier = Modifier.padding(bottom = 8.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(
+                            text = "Press enter or click 'BOOT SYSTEM NOW' below.",
+                            color = Color(0xFF64748B),
+                            fontSize = 9.sp,
+                            fontFamily = FontFamily.Monospace
+                        )
+                        Text(
+                            text = "Hypervisor: HYBRID-KVM v4.2",
+                            color = Color(0xFF64748B),
+                            fontSize = 9.sp,
+                            fontFamily = FontFamily.Monospace
+                        )
+                    }
+                }
             }
 
+            // RIGHT PANEL: Advanced System Configuration Panel & Hardware Specs
             Card(
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxHeight(),
-                colors = CardDefaults.cardColors(containerColor = Color(0xFF0E1424)),
-                border = BorderStroke(1.dp, Color.White.copy(alpha = 0.1f)),
-                shape = RoundedCornerShape(12.dp)
+                colors = CardDefaults.cardColors(containerColor = Color(0xFF080D1A)),
+                border = BorderStroke(1.dp, Color(0xFF334155)),
+                shape = RoundedCornerShape(8.dp)
             ) {
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(18.dp),
+                        .padding(16.dp),
                     verticalArrangement = Arrangement.SpaceBetween
                 ) {
                     Column {
+                        // Title
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Icon(
                                 imageVector = Icons.Default.Settings,
                                 contentDescription = "Specs",
                                 tint = Color(0xFFFFA500),
-                                modifier = Modifier.size(22.dp)
+                                modifier = Modifier.size(20.dp)
                             )
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(
-                                text = "VIRTUAL HARDWARE SPECS",
+                                text = "SYSTEM CONFIGURATION PANEL",
                                 color = Color.White,
-                                fontSize = 15.sp,
+                                fontSize = 13.sp,
                                 fontWeight = FontWeight.Bold,
                                 fontFamily = FontFamily.Monospace
                             )
                         }
-                        Divider(color = Color.White.copy(alpha = 0.1f), modifier = Modifier.padding(vertical = 10.dp))
+                        
+                        Divider(color = Color(0xFF1E293B), modifier = Modifier.padding(vertical = 10.dp))
 
+                        // CPU Core Selection
                         Text(
                             text = "CPU Core Allocation: $cores Cores",
-                            color = Color.LightGray,
-                            fontSize = 12.sp,
+                            color = Color(0xFF94A3B8),
+                            fontSize = 11.sp,
                             fontFamily = FontFamily.Monospace,
                             modifier = Modifier.padding(bottom = 6.dp)
                         )
@@ -265,22 +305,23 @@ fun BootloaderScreen(viewModel: VirtualSystemViewModel) {
                                 Button(
                                     onClick = { cores = c },
                                     colors = ButtonDefaults.buttonColors(
-                                        containerColor = if (cores == c) Color(0xFFFFA500) else Color(0xFF1E283D)
+                                        containerColor = if (cores == c) Color(0xFFFFA500) else Color(0xFF1E293B)
                                     ),
                                     contentPadding = PaddingValues(horizontal = 10.dp, vertical = 2.dp),
                                     modifier = Modifier.weight(1f)
                                 ) {
-                                    Text("$c", fontSize = 11.sp, fontFamily = FontFamily.Monospace)
+                                    Text("$c", fontSize = 11.sp, fontFamily = FontFamily.Monospace, color = if (cores == c) Color.Black else Color.White)
                                 }
                             }
                         }
 
-                        Spacer(modifier = Modifier.height(14.dp))
+                        Spacer(modifier = Modifier.height(12.dp))
 
+                        // RAM Selection
                         Text(
                             text = "Virtual System RAM: $ram GB",
-                            color = Color.LightGray,
-                            fontSize = 12.sp,
+                            color = Color(0xFF94A3B8),
+                            fontSize = 11.sp,
                             fontFamily = FontFamily.Monospace,
                             modifier = Modifier.padding(bottom = 6.dp)
                         )
@@ -294,19 +335,20 @@ fun BootloaderScreen(viewModel: VirtualSystemViewModel) {
                                     contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
                                     modifier = Modifier.weight(1f)
                                 ) {
-                                    Text("${r}G", fontSize = 11.sp, fontFamily = FontFamily.Monospace)
+                                    Text("${r}G", fontSize = 11.sp, fontFamily = FontFamily.Monospace, color = if (ram == r) Color.Black else Color.White)
                                 }
                             }
                         }
 
-                        Spacer(modifier = Modifier.height(14.dp))
+                        Spacer(modifier = Modifier.height(12.dp))
 
+                        // Vulkan Graphics Driver Swap
                         Text(
-                            text = "Vulkan Graphics Driver Swap:",
-                            color = Color.LightGray,
-                            fontSize = 12.sp,
+                            text = "GPU Driver: $driver",
+                            color = Color(0xFF94A3B8),
+                            fontSize = 11.sp,
                             fontFamily = FontFamily.Monospace,
-                            modifier = Modifier.padding(bottom = 6.dp)
+                            modifier = Modifier.padding(bottom = 4.dp)
                         )
                         Column {
                             driversList.forEach { drv ->
@@ -315,7 +357,7 @@ fun BootloaderScreen(viewModel: VirtualSystemViewModel) {
                                     modifier = Modifier
                                         .fillMaxWidth()
                                         .clickable { driver = drv }
-                                        .padding(vertical = 4.dp, horizontal = 4.dp),
+                                        .padding(vertical = 2.dp),
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
                                     RadioButton(
@@ -325,16 +367,17 @@ fun BootloaderScreen(viewModel: VirtualSystemViewModel) {
                                     )
                                     Text(
                                         text = drv,
-                                        color = if (active) Color.White else Color.Gray,
-                                        fontSize = 11.sp,
+                                        color = if (active) Color.White else Color(0xFF64748B),
+                                        fontSize = 10.sp,
                                         fontFamily = FontFamily.Monospace
                                     )
                                 }
                             }
                         }
 
-                        Spacer(modifier = Modifier.height(10.dp))
+                        Spacer(modifier = Modifier.height(6.dp))
 
+                        // Translation layers checkboxes
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween
@@ -345,7 +388,7 @@ fun BootloaderScreen(viewModel: VirtualSystemViewModel) {
                                     onCheckedChange = { dxvk = it },
                                     colors = CheckboxDefaults.colors(checkedColor = Color(0xFFFFA500))
                                 )
-                                Text("DXVK Layer", color = Color.LightGray, fontSize = 11.sp, fontFamily = FontFamily.Monospace)
+                                Text("DXVK Direct3D", color = Color(0xFF94A3B8), fontSize = 10.sp, fontFamily = FontFamily.Monospace)
                             }
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Checkbox(
@@ -353,11 +396,37 @@ fun BootloaderScreen(viewModel: VirtualSystemViewModel) {
                                     onCheckedChange = { esync = it },
                                     colors = CheckboxDefaults.colors(checkedColor = Color(0xFFFFA500))
                                 )
-                                Text("Wine-Esync", color = Color.LightGray, fontSize = 11.sp, fontFamily = FontFamily.Monospace)
+                                Text("Wine-Esync", color = Color(0xFF94A3B8), fontSize = 10.sp, fontFamily = FontFamily.Monospace)
                             }
+                        }
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        // Estimated performance grade bar (dynamic resource allocation feedback)
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .background(Color(0xFF030712))
+                                .border(1.dp, Color(0xFF1E293B), RoundedCornerShape(4.dp))
+                                .padding(8.dp)
+                        ) {
+                            Text(
+                                text = "ESTIMATED PERFORMANCE GRADE:",
+                                color = Color.Gray,
+                                fontSize = 8.sp,
+                                fontFamily = FontFamily.Monospace
+                            )
+                            Text(
+                                text = perfGrade,
+                                color = perfColor,
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Bold,
+                                fontFamily = FontFamily.Monospace
+                            )
                         }
                     }
 
+                    // BOOT NOW
                     Button(
                         onClick = {
                             viewModel.setSpecifications(cores, ram, driver, dxvk, esync)
@@ -366,15 +435,15 @@ fun BootloaderScreen(viewModel: VirtualSystemViewModel) {
                         colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00FFCC)),
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(44.dp),
-                        shape = RoundedCornerShape(8.dp)
+                            .height(40.dp),
+                        shape = RoundedCornerShape(4.dp)
                     ) {
                         Text(
                             text = "BOOT SYSTEM NOW",
-                            color = Color(0xFF070B19),
+                            color = Color(0xFF030712),
                             fontWeight = FontWeight.Bold,
                             fontFamily = FontFamily.Monospace,
-                            fontSize = 14.sp
+                            fontSize = 12.sp
                         )
                     }
                 }
@@ -512,34 +581,49 @@ fun DesktopEnvironment(viewModel: VirtualSystemViewModel, uiState: UiState) {
             }
         }
 
-        uiState.windows.filter { !it.isMinimized }.forEach { window ->
-            key(window.type) {
-                val isActive = uiState.activeWindow == window.type
-                WindowWrapper(
-                    window = window,
-                    isActive = isActive,
-                    currentOs = uiState.currentOs,
-                    onFocus = { viewModel.focusWindow(window.type) },
-                    onMinimize = { viewModel.minimizeWindow(window.type) },
-                    onMaximizeToggle = { viewModel.toggleMaximizeWindow(window.type) },
-                    onClose = { viewModel.closeWindow(window.type) },
-                    onMove = { dx, dy ->
-                        viewModel.updateWindowPosition(
-                            window.type,
-                            (window.x + dx).roundToInt(),
-                            (window.y + dy).roundToInt()
-                        )
-                    }
-                ) {
-                    when (window.type) {
-                        WindowType.CMD -> TerminalAppContent(viewModel = viewModel, uiState = uiState)
-                        WindowType.EXPLORER -> FileExplorerAppContent(viewModel = viewModel, uiState = uiState)
-                        WindowType.SETTINGS -> SettingsAppContent(viewModel = viewModel, uiState = uiState)
-                        WindowType.CHROME -> GoogleChromeAppContent(viewModel = viewModel, uiState = uiState)
-                        WindowType.NOTEPAD -> NotepadAppContent(viewModel = viewModel, uiState = uiState)
-                        WindowType.TASK_MANAGER -> TaskManagerAppContent(viewModel = viewModel, uiState = uiState)
-                        WindowType.PRINTER_SCANNER -> PrinterScannerAppContent(viewModel = viewModel, uiState = uiState)
-                        WindowType.PACK_INSTALLER -> PackageInstallerAppContent(viewModel = viewModel, uiState = uiState)
+        BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+            val maxW = maxWidth
+            val maxH = maxHeight
+
+            uiState.windows.forEach { window ->
+                val isVisible = !window.isMinimized
+                key(window.type) {
+                    val isActive = uiState.activeWindow == window.type
+                    AnimatedVisibility(
+                        visible = isVisible,
+                        enter = slideInVertically(initialOffsetY = { 100 }) + fadeIn() + scaleIn(initialScale = 0.85f),
+                        exit = slideOutVertically(targetOffsetY = { 100 }) + fadeOut() + scaleOut(targetScale = 0.85f),
+                        modifier = Modifier.zIndex(window.zIndex.toFloat())
+                    ) {
+                        WindowWrapper(
+                            window = window,
+                            isActive = isActive,
+                            currentOs = uiState.currentOs,
+                            maxW = maxW,
+                            maxH = maxH,
+                            onFocus = { viewModel.focusWindow(window.type) },
+                            onMinimize = { viewModel.minimizeWindow(window.type) },
+                            onMaximizeToggle = { viewModel.toggleMaximizeWindow(window.type) },
+                            onClose = { viewModel.closeWindow(window.type) },
+                            onMove = { dx, dy ->
+                                viewModel.updateWindowPosition(
+                                    window.type,
+                                    (window.x + dx).roundToInt(),
+                                    (window.y + dy).roundToInt()
+                                )
+                            }
+                        ) {
+                            when (window.type) {
+                                WindowType.CMD -> TerminalAppContent(viewModel = viewModel, uiState = uiState)
+                                WindowType.EXPLORER -> FileExplorerAppContent(viewModel = viewModel, uiState = uiState)
+                                WindowType.SETTINGS -> SettingsAppContent(viewModel = viewModel, uiState = uiState)
+                                WindowType.CHROME -> GoogleChromeAppContent(viewModel = viewModel, uiState = uiState)
+                                WindowType.NOTEPAD -> NotepadAppContent(viewModel = viewModel, uiState = uiState)
+                                WindowType.TASK_MANAGER -> TaskManagerAppContent(viewModel = viewModel, uiState = uiState)
+                                WindowType.PRINTER_SCANNER -> PrinterScannerAppContent(viewModel = viewModel, uiState = uiState)
+                                WindowType.PACK_INSTALLER -> PackageInstallerAppContent(viewModel = viewModel, uiState = uiState)
+                            }
+                        }
                     }
                 }
             }
@@ -658,6 +742,8 @@ fun WindowWrapper(
     window: WindowState,
     isActive: Boolean,
     currentOs: OsType,
+    maxW: androidx.compose.ui.unit.Dp,
+    maxH: androidx.compose.ui.unit.Dp,
     onFocus: () -> Unit,
     onMinimize: () -> Unit,
     onMaximizeToggle: () -> Unit,
@@ -683,16 +769,29 @@ fun WindowWrapper(
         BorderStroke(1.dp, Color.White.copy(alpha = 0.1f))
     }
 
-    val modifier = if (window.isMaximized) {
-        Modifier
-            .fillMaxWidth()
-            .fillMaxHeight()
-            .padding(bottom = if (currentOs == OsType.KALI) 0.dp else 48.dp, top = if (currentOs == OsType.KALI) 32.dp else 0.dp)
-    } else {
-        Modifier
-            .offset { IntOffset(window.x, window.y) }
-            .size(window.width.dp, window.height.dp)
-    }
+    // Animation ratio for maximizing / windowing
+    val isMax = window.isMaximized
+    val animRatio by animateFloatAsState(
+        targetValue = if (isMax) 1f else 0f,
+        animationSpec = spring(dampingRatio = 0.82f, stiffness = Spring.StiffnessMediumLow),
+        label = "maximizationRatio"
+    )
+
+    val bottomPadding = if (currentOs == OsType.KALI) 0.dp else 48.dp
+    val topPadding = if (currentOs == OsType.KALI) 32.dp else 0.dp
+
+    val targetW = maxW
+    val targetH = maxH - bottomPadding - topPadding
+
+    // Interpolate width, height, and offsets smoothly
+    val currentWidth = window.width.dp + (targetW - window.width.dp) * animRatio
+    val currentHeight = window.height.dp + (targetH - window.height.dp) * animRatio
+    val currentX = window.x.dp + (0.dp - window.x.dp) * animRatio
+    val currentY = window.y.dp + (topPadding - window.y.dp) * animRatio
+
+    val modifier = Modifier
+        .offset(currentX, currentY)
+        .size(currentWidth, currentHeight)
 
     Card(
         modifier = modifier
@@ -1284,11 +1383,7 @@ fun FileExplorerAppContent(viewModel: VirtualSystemViewModel, uiState: UiState) 
                                             if (file.isDirectory) {
                                                 viewModel.navigateToFolder(file.path)
                                             } else {
-                                                if (file.name.endsWith(".apk")) {
-                                                    viewModel.handleApkInstallError()
-                                                } else {
-                                                    viewModel.openWindow(WindowType.NOTEPAD)
-                                                }
+                                                viewModel.executeVirtualBinary(file)
                                             }
                                         }
                                 )
