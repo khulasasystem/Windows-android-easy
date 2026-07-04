@@ -1,0 +1,6 @@
+{
+  "name": "Windows 11 Simulator",
+  "description": "A specialized, highly optimized Windows 11 Virtual Environment Simulation running inside containerized Android.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
