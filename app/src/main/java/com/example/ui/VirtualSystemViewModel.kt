@@ -43,6 +43,17 @@ data class VirtualNotification(
     val isRead: Boolean = false
 )
 
+data class DesktopShortcut(
+    val id: String,
+    val title: String,
+    val type: WindowType?, // null for folder shortcuts
+    val folderPath: String? = null,
+    val iconName: String,
+    val iconColorVal: Long,
+    val gridX: Int,
+    val gridY: Int
+)
+
 data class VirtualApp(
     val id: String,
     val name: String,
@@ -54,9 +65,25 @@ data class VirtualApp(
     val fileType: String // ".exe" or "linux"
 )
 
+data class DiskPartition(
+    val letter: String, // "C:", "D:", "E:", "ROOTFS"
+    val name: String,
+    val fileSystem: String,
+    val sizeGb: Int,
+    val usedGb: Int,
+    val isSystem: Boolean = false
+)
+
 data class UiState(
+    val partitions: List<DiskPartition> = listOf(
+        DiskPartition("C:", "Local Disk", "NTFS", 250, 120, true),
+        DiskPartition("D:", "USB Storage", "FAT32", 64, 16),
+        DiskPartition("E:", "Backup SD", "exFAT", 32, 8),
+        DiskPartition("ROOTFS", "Linux rootfs", "EXT4", 100, 40)
+    ),
     val currentOs: OsType = OsType.BOOTLOADER,
     val isBooting: Boolean = false,
+    val isShuttingDown: Boolean = false,
     val bootProgress: Float = 0f,
     val isStartMenuOpen: Boolean = false,
     val windows: List<WindowState> = emptyList(),
@@ -104,7 +131,38 @@ data class UiState(
     val scanProgress: Float = 0f,
     val isPrinting: Boolean = false,
     val printProgress: Float = 0f,
-    val scannedDocResult: String? = null
+    val scannedDocResult: String? = null,
+
+    // Pro features activation & BIOS Setup Configuration
+    val isProActivated: Boolean = false,
+    val activationKey: String = "",
+    val isBiosSetupOpen: Boolean = false,
+    val biosBootDevice: String = "Windows 11 Pro",
+    val biosSecureBoot: Boolean = true,
+    val biosHypervisorType: String = "KVM-Hybrid v4.2",
+    val biosVirtualTPM: Boolean = true,
+    val biosSelectedOs: OsType = OsType.WIN11,
+    val desktopShortcuts: List<DesktopShortcut> = listOf(
+        DesktopShortcut("chrome", "Google Chrome", WindowType.CHROME, null, "chrome", 0xFF00E676, 0, 0),
+        DesktopShortcut("explorer", "File Explorer", WindowType.EXPLORER, null, "explorer", 0xFFFFC107, 0, 1),
+        DesktopShortcut("cmd", "Command Prompt", WindowType.CMD, null, "cmd", 0xFF90A4AE, 0, 2),
+        DesktopShortcut("settings", "Control Panel", WindowType.SETTINGS, null, "settings", 0xFF00B0FF, 0, 3),
+        DesktopShortcut("installer", "Software Center", WindowType.PACK_INSTALLER, null, "installer", 0xFFE040FB, 0, 4),
+        DesktopShortcut("printer", "Peripherals manager", WindowType.PRINTER_SCANNER, null, "printer", 0xFF00E5FF, 0, 5),
+        DesktopShortcut("documents", "My Documents", null, "C:\\Users\\Administrator\\Documents", "documents", 0xFFFFD54F, 1, 0),
+        DesktopShortcut("downloads", "Downloads", null, "C:\\Users\\Administrator\\Downloads", "downloads", 0xFF4FC3F7, 1, 1)
+    ),
+    
+    // Windows Setup (OOBE) & Lock Screen States
+    val oobeCompleted: Boolean = false,
+    val oobeUsername: String = "Administrator",
+    val oobePasswordText: String = "",
+    val oobeComputerName: String = "GATEUP-PC",
+    val oobeCurrentStep: Int = 0,
+    val oobeLanguage: String = "English (United States)",
+    val isLocked: Boolean = true,
+    val isSetupInProcess: Boolean = false,
+    val bootDiagnosticsLog: List<String> = emptyList()
 )
 
 class VirtualSystemViewModel(
@@ -133,6 +191,9 @@ class VirtualSystemViewModel(
         
         // Initialize simulated apps
         initializeDownloadableApps()
+        
+        // Boot directly to Windows 11 on first startup
+        bootSelectedOs(OsType.WIN11)
     }
 
     private fun initializeDownloadableApps() {
@@ -166,33 +227,64 @@ class VirtualSystemViewModel(
 
     fun bootSelectedOs(os: OsType) {
         viewModelScope.launch {
-            _uiState.update { it.copy(isBooting = true, bootProgress = 0f) }
-            
-            // Fast loading BIOS simulator
-            for (i in 1..10) {
-                delay(180)
-                _uiState.update { it.copy(bootProgress = i * 0.1f) }
+            _uiState.update { 
+                it.copy(
+                    isBooting = true, 
+                    bootProgress = 0f,
+                    bootDiagnosticsLog = emptyList()
+                ) 
             }
             
+            val diagnosticSteps = listOf(
+                "GATEUP UEFI Bootloader Init...",
+                "CPU Cores: ${_uiState.value.cpuCores} Virtualized (JIT Recompiler Active)",
+                "RAM Size: ${_uiState.value.ramSizeGb} GB Host-Backed Memory Pool Init",
+                "Secure Boot: ${if (_uiState.value.biosSecureBoot) "PASSED" else "DISABLED (LEGACY MODE)"}",
+                "Virtual TPM: ${if (_uiState.value.biosVirtualTPM) "SECURE ENCLAVE ACTIVE" else "NOT INSTANTIATED"}",
+                "Storage Check: ${_uiState.value.storageSizeGb} GB Virtual Disk Signature VALID",
+                "Graphics Driver: ${_uiState.value.graphicsDriver} Pipeline Hooked",
+                "Loading Guest Kernel Modules & HAL...",
+                "System Checkup COMPLETE: 100% Stability Index"
+            )
+            
+            for (i in 0..8) {
+                delay(200)
+                val stepText = diagnosticSteps[i]
+                _uiState.update { state ->
+                    state.copy(
+                        bootProgress = (i + 1) / 9.0f,
+                        bootDiagnosticsLog = state.bootDiagnosticsLog + stepText
+                    )
+                }
+            }
+            delay(250)
+            
             // Setup defaults for corresponding path based on OS type
-            val initialPath = if (os == OsType.KALI) "/root" else "C:\\Users\\Administrator"
+            val initialPath = if (os == OsType.KALI) "/root" else "C:\\Users\\${_uiState.value.oobeUsername}"
             _uiState.update {
                 it.copy(
                     isBooting = false,
                     currentOs = os,
                     explorerPath = initialPath,
-                    terminalCurrentDir = initialPath
+                    terminalCurrentDir = initialPath,
+                    isSetupInProcess = !it.oobeCompleted,
+                    isLocked = it.oobeCompleted
                 )
             }
             
             refreshExplorerFiles(initialPath)
+            
+            // Play boot sound chime asynchronously
+            viewModelScope.launch {
+                AudioService.playBootSound()
+            }
             
             // Add boot message to terminal
             val initMessage = when (os) {
                 OsType.KALI -> listOf(
                     "Kali Linux GNU/Linux 2026.1 (kali-rolling)",
                     "Kernel: x86_64 Linux 6.6.1-kali-amd64",
-                    "CPU: Virtual 8 Cores (Snapdragon / Mediatek Host)",
+                    "CPU: Virtual ${_uiState.value.cpuCores} Cores (Snapdragon / Mediatek Host)",
                     "RAM: " + _uiState.value.ramSizeGb + " GB Core Allocation",
                     "Zink GPU Hardware-acceleration: Active",
                     "Security Framework: Loaded.",
@@ -212,20 +304,77 @@ class VirtualSystemViewModel(
             _uiState.update { it.copy(terminalHistory = initMessage) }
             
             triggerNotification(
-                "System Initialized",
-                "Booted successfully into " + getOsFriendlyName(os) + "! Default parameters applied."
+                "Booting Sequence Finished",
+                "Completed diagnostics for ${getOsFriendlyName(os)}. Proceeding."
             )
         }
     }
 
-    fun rebootToBootloader() {
+    fun setOobeStep(step: Int) {
+        _uiState.update { it.copy(oobeCurrentStep = step) }
+    }
+    
+    fun updateOobeUsername(username: String) {
+        _uiState.update { it.copy(oobeUsername = username) }
+    }
+    
+    fun updateOobePassword(password: String) {
+        _uiState.update { it.copy(oobePasswordText = password) }
+    }
+    
+    fun updateOobeComputerName(computerName: String) {
+        _uiState.update { it.copy(oobeComputerName = computerName) }
+    }
+    
+    fun updateOobeLanguage(language: String) {
+        _uiState.update { it.copy(oobeLanguage = language) }
+    }
+    
+    fun completeOobeSetup() {
+        val os = _uiState.value.currentOs
+        val initialPath = if (os == OsType.KALI) "/root" else "C:\\Users\\${_uiState.value.oobeUsername}"
         _uiState.update {
             it.copy(
-                currentOs = OsType.BOOTLOADER,
-                windows = emptyList(),
-                activeWindow = null,
-                isStartMenuOpen = false
+                oobeCompleted = true,
+                isSetupInProcess = false,
+                isLocked = true, // Force lock screen on first start
+                explorerPath = initialPath,
+                terminalCurrentDir = initialPath
             )
+        }
+        refreshExplorerFiles(initialPath)
+        triggerNotification("GateUp Provisioning Completed", "Created secure user profile for ${os}.")
+    }
+    
+    fun unlockSystem(enteredPassword: String): Boolean {
+        val expected = _uiState.value.oobePasswordText
+        return if (enteredPassword == expected) {
+            _uiState.update { it.copy(isLocked = false) }
+            triggerNotification("User Session Decrypted", "Welcome back, ${_uiState.value.oobeUsername}!")
+            true
+        } else {
+            false
+        }
+    }
+    
+    fun logoutSystem() {
+        _uiState.update { it.copy(isLocked = true) }
+    }
+
+    fun rebootToBootloader() {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isShuttingDown = true) }
+            // Play descending shutdown chime
+            AudioService.playShutdownSound()
+            _uiState.update {
+                it.copy(
+                    isShuttingDown = false,
+                    currentOs = OsType.BOOTLOADER,
+                    windows = emptyList(),
+                    activeWindow = null,
+                    isStartMenuOpen = false
+                )
+            }
         }
     }
 
@@ -235,6 +384,29 @@ class VirtualSystemViewModel(
         OsType.WIN10 -> "Windows 10 Pro"
         OsType.WIN7 -> "Windows 7 Ultimate"
         OsType.KALI -> "Kali Linux Rolling"
+    }
+
+    fun updateShortcutPosition(id: String, gridX: Int, gridY: Int) {
+        _uiState.update { state ->
+            state.copy(
+                desktopShortcuts = state.desktopShortcuts.map {
+                    if (it.id == id) it.copy(gridX = gridX, gridY = gridY)
+                    else it
+                }
+            )
+        }
+    }
+
+    fun openFolderShortcut(shortcut: DesktopShortcut) {
+        val path = if (_uiState.value.currentOs == OsType.KALI) {
+            if (shortcut.id == "documents") "/root/Documents" else "/root/Downloads"
+        } else {
+            val user = if (_uiState.value.oobeUsername.isNotBlank()) _uiState.value.oobeUsername else "Administrator"
+            if (shortcut.id == "documents") "C:\\Users\\$user\\Documents" else "C:\\Users\\$user\\Downloads"
+        }
+        _uiState.update { it.copy(explorerPath = path) }
+        refreshExplorerFiles(path)
+        openWindow(WindowType.EXPLORER)
     }
 
     // --- WINDOWS MANAGEMENT ---
@@ -1079,6 +1251,150 @@ class VirtualSystemViewModel(
             val newX = (state.mouseX + dx).coerceIn(0f, 1280f)
             val newY = (state.mouseY + dy).coerceIn(0f, 720f)
             state.copy(mouseX = newX, mouseY = newY)
+        }
+    }
+
+    fun setBiosSetupOpen(open: Boolean) {
+        _uiState.update { it.copy(isBiosSetupOpen = open) }
+    }
+
+    fun updateBiosSettings(bootDevice: String, secureBoot: Boolean, hypervisorType: String, virtualTPM: Boolean, selectedOs: OsType) {
+        _uiState.update {
+            it.copy(
+                biosBootDevice = bootDevice,
+                biosSecureBoot = secureBoot,
+                biosHypervisorType = hypervisorType,
+                biosVirtualTPM = virtualTPM,
+                biosSelectedOs = selectedOs
+            )
+        }
+    }
+
+    fun selectBiosOs(os: OsType) {
+        _uiState.update { it.copy(biosSelectedOs = os) }
+    }
+
+    fun activateLicenseKey(key: String): Boolean {
+        val trimmed = key.trim().uppercase()
+        val isValid = trimmed.isNotEmpty()
+        if (isValid) {
+            _uiState.update { it.copy(isProActivated = true, activationKey = trimmed) }
+            triggerNotification("System Activated", "GateUp Pro Hypervisor has been successfully activated!")
+        }
+        return isValid
+    }
+
+    fun deactivateLicense() {
+        _uiState.update { it.copy(isProActivated = false, activationKey = "") }
+        triggerNotification("License Deactivated", "GateUp Pro Hypervisor has reverted to community edition.")
+    }
+
+    fun createPartition(letter: String, name: String, fileSystem: String, sizeGb: Int): Boolean {
+        val cleanLetter = letter.trim().uppercase().removeSuffix(":") + ":"
+        val cleanName = name.trim().ifEmpty { "New Volume" }
+        
+        if (cleanLetter.length != 2 || !cleanLetter[0].isLetter()) return false
+        
+        var success = false
+        _uiState.update { state ->
+            val exists = state.partitions.any { it.letter.equals(cleanLetter, ignoreCase = true) }
+            if (exists) {
+                success = false
+                state
+            } else {
+                val updatedPartitions = state.partitions.toMutableList()
+                val newPart = DiskPartition(cleanLetter, cleanName, fileSystem, sizeGb, 0)
+                updatedPartitions.add(newPart)
+                success = true
+                
+                viewModelScope.launch {
+                    repository.createDirectory("", cleanLetter)
+                    repository.createFile(cleanLetter, "README_Partition.txt", "Partition $cleanLetter [$cleanName] has been created and formatted with $fileSystem filesystem.")
+                    
+                    // Refresh current folder file list if they are currently viewing the root directory
+                    if (state.explorerPath == "" || state.explorerPath == "C:\\Users\\Administrator") {
+                        refreshExplorerFiles(state.explorerPath)
+                    }
+                }
+                
+                triggerNotification("Partition Created", "Volume $cleanLetter ($cleanName) has been successfully created.")
+                state.copy(partitions = updatedPartitions)
+            }
+        }
+        return success
+    }
+
+    fun deletePartition(letter: String): Boolean {
+        if (letter == "C:" || letter == "ROOTFS") {
+            triggerNotification("Access Denied", "System partitions cannot be deleted.")
+            return false
+        }
+        _uiState.update { state ->
+            val updatedPartitions = state.partitions.filterNot { it.letter == letter }
+            viewModelScope.launch {
+                repository.deleteFile(letter)
+                if (state.explorerPath.startsWith(letter)) {
+                    navigateToFolder("C:")
+                }
+            }
+            triggerNotification("Partition Deleted", "Volume $letter has been deleted.")
+            state.copy(partitions = updatedPartitions)
+        }
+        return true
+    }
+
+    fun formatPartition(letter: String, fileSystem: String): Boolean {
+        _uiState.update { state ->
+            val updatedPartitions = state.partitions.map {
+                if (it.letter == letter) {
+                    it.copy(fileSystem = fileSystem, usedGb = 0)
+                } else {
+                    it
+                }
+            }
+            viewModelScope.launch {
+                repository.deleteFile(letter)
+                repository.createDirectory("", letter)
+                repository.createFile(letter, "README_Partition.txt", "Partition $letter has been formatted with $fileSystem filesystem.")
+                if (state.explorerPath.startsWith(letter)) {
+                    refreshExplorerFiles(state.explorerPath)
+                }
+            }
+            triggerNotification("Partition Formatted", "Volume $letter has been formatted to $fileSystem.")
+            state.copy(partitions = updatedPartitions)
+        }
+        return true
+    }
+
+    fun resizePartition(letter: String, newSizeGb: Int): Boolean {
+        if (newSizeGb <= 0) return false
+        _uiState.update { state ->
+            val updatedPartitions = state.partitions.map {
+                if (it.letter == letter) {
+                    val used = if (it.usedGb > newSizeGb) newSizeGb else it.usedGb
+                    it.copy(sizeGb = newSizeGb, usedGb = used)
+                } else {
+                    it
+                }
+            }
+            triggerNotification("Partition Resized", "Volume $letter size adjusted to $newSizeGb GB.")
+            state.copy(partitions = updatedPartitions)
+        }
+        return true
+    }
+
+    fun handleVirtualKeyInput(key: String) {
+        triggerNotification("Keyboard Input Registered", "Key '$key' passed directly to Guest Kernel.")
+        _uiState.update { state ->
+            val updatedHistory = state.terminalHistory.toMutableList()
+            if (key == "ENTER") {
+                updatedHistory.add("Kernel Keypress: [ENTER] processed.")
+            } else if (key == "ESC") {
+                updatedHistory.add("Kernel Keypress: [ESCAPE] abort sequence triggered.")
+            } else {
+                updatedHistory.add("Kernel Keypress: $key pressed.")
+            }
+            state.copy(terminalHistory = updatedHistory)
         }
     }
 }
