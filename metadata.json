@@ -1,6 +1,8 @@
 {
-  "name": "GateUp OS Simulator",
-  "description": "A specialized, highly optimized Windows 11 Virtual Environment Simulation running inside containerized Android.",
+  "name": "OS Simulator",
+  "description": "A fully functional simulated desktop OS experience in Jetpack Compose with interactive windows and utilities.",
   "requestFramePermissions": [],
-  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
 }
